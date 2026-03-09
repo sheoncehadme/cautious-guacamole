@@ -1,0 +1,31 @@
+# Python
+# Compiled source
+__pycache__
+*.pyc
+*.pyd
+*.pyo
+*.egg-info/
+.eggs/
+
+# Environments
+.venv/
+venv/
+env/
+ENV/
+*.egg/
+.python-version
+
+# Editor/IDE-specific files
+# VS Code
+.vscode/
+# PyCharm
+.idea/
+
+# Data and logs
+*.log
+*.csv
+*.dat
+*.json
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
