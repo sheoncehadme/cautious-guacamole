@@ -51,7 +51,7 @@ class PitchJudger:
             trick_plays = played_history[i:i+4]
             winner_pid = self.judge_trick(trick_plays, trump)
             if winner_pid == -1:
-                continue  # Skip empty tricks
+                continue
             winner_team = state['teams'][winner_pid]
             for pid, card in trick_plays:
                 pts = get_card_points(card, trump)

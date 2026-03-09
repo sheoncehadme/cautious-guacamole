@@ -4,12 +4,11 @@ from RLPitch.Player import PitchPlayer
 from RLPitch.Judger import PitchJudger
 from RLPitch.Dealer import PitchDealer
 
-from .utils import SUIT_NAMES, get_card_power, is_trump, PASS_ACTION
+from .utils import SUIT_NAMES, is_trump, get_card_power, PASS_ACTION
 
 class PitchRound:
     def __init__(self, players: List[PitchPlayer], judger: PitchJudger, dealer: PitchDealer, np_random):
         self.name = 'round'
-        self.current = 0
         self.players = players
         self.judger = judger
         self.dealer = dealer
@@ -23,8 +22,8 @@ class PitchRound:
         self.phase = 'bidding'  # 'bidding', 'declare_trump', 'discard', 'redeal', 'kitty', 'play'
         self.played_history = []  # List of (pid, card)
         self.current_trick = []
-
-        self.tricks = []  # List of won tricks per team (optional, but used in code)
+        self.tricks = []
+        self.pass_count = 0  # Consecutive passes
 
     def proceed_action(self, action: int):
         if self.phase == 'bidding':
@@ -48,10 +47,6 @@ class PitchRound:
                 self.high_bid = action
                 self.high_bidder = self.current_player
                 self.high_bidder_team = self.players[self.current_player].team_id
-            else:
-                # Optional: Log invalid bid (shouldn't happen with legal_actions)
-                print(f"Warning: Invalid bid {action} <= high_bid {self.high_bid}; treating as pass")
-                action = 10
         self.bids[self.current_player] = action
         self.current_player = (self.current_player + 1) % 4
         if all(b >= 0 for b in self.bids):
@@ -63,8 +58,7 @@ class PitchRound:
                 pass
 
     def discard_phase(self):
-        # No burning or discard non-trump; keep initial hand as is
-        pass  # Or minimal: print("No discard for non-trump.")
+        pass  # No discard non-trump
 
     def redeal_phase(self):
         players_below_6 = [p for p in self.players if len(p.hand) < 6]
@@ -79,47 +73,74 @@ class PitchRound:
         high_bidder = self.players[self.high_bidder]
         trump = self.trump
 
-        # Add trump from kitty
-        added_trump = [c for c in self.dealer.remaining_deck if c.is_trump(trump)]
-        high_bidder.hand.extend(added_trump)
+        # Add better trump from kitty
+        current_hand = high_bidder.hand.copy()
+        current_hand.sort(key=lambda c: get_card_power(c, trump))  # Ascending
+        for c in self.dealer.remaining_deck:
+            if is_trump(c, trump):
+                if len(current_hand) < 6 or get_card_power(c, trump) > get_card_power(current_hand[0], trump):
+                    current_hand.append(c)
+                    current_hand.sort(key=lambda c: get_card_power(c, trump))
+                    if len(current_hand) > 6:
+                        burnt_card = current_hand.pop(0)
+                        if is_trump(burnt_card, trump):
+                            print(f"Player {high_bidder.player_id} burnt trump card: {burnt_card} (out of play)")
 
-        # If >6 after add, burn lowest power until 6, log burnt trump
-        while len(high_bidder.hand) > 6:
-            high_bidder.hand.sort(key=lambda c: get_card_power(c, trump))  # Ascending power (lowest first)
-            burnt_card = high_bidder.hand.pop(0)  # Burn lowest
-            if burnt_card.is_trump(trump):
-                print(f"Player {high_bidder.player_id} burnt trump card: {burnt_card} (out of play)")
-
+        high_bidder.hand = current_hand
         self.dealer.remaining_deck = []  # Clear kitty
 
     def proceed_trick(self, action: int):
         if action == PASS_ACTION:
-            # Skip turn, mark as passed for this trick (but since no mark, just advance)
+            print(f"Player {self.current_player} declares out (no trump left)")
+            self.pass_count += 1
+            self.current_player = (self.current_player + 1) % 4
+            if self.pass_count >= 4:
+                self.current_trick = []  # Clear if no plays
+                self.pass_count = 0
+                return  # Skip to is_over check
+            return
+
+        self.pass_count = 0
+        hand = self.players[self.current_player].hand
+        if not hand:
             self.current_player = (self.current_player + 1) % 4
             return
 
-        if not self.players[self.current_player].hand:
-            self.current_player = (self.current_player + 1) % 4
-            return
+        if action >= len(hand) or action < 0:
+            print(f"Invalid action {action} for hand size {len(hand)}, choosing random legal")
+            trump_indices = [i for i, c in enumerate(hand) if c.is_trump(self.trump)]
+            action = self.np_random.choice(trump_indices) if trump_indices else PASS_ACTION
+            if action == PASS_ACTION:
+                print(f"Player {self.current_player} declares out (no trump left)")
+                self.pass_count += 1
+                self.current_player = (self.current_player + 1) % 4
+                if self.pass_count >= 4:
+                    self.current_trick = []
+                    self.pass_count = 0
+                    return
+                return
 
-        card = self.players[self.current_player].hand.pop(action)
+        card = hand.pop(action)
         self.played_history.append((self.current_player, card))
         self.current_trick.append((self.current_player, card))
         self.current_player = (self.current_player + 1) % 4
 
-        # Check if trick complete: 4 cards or all remaining players have no cards (passed/out)
-        remaining_players = [self.current_player + k % 4 for k in range(4 - len(self.current_trick))]
-        if len(self.current_trick) == 4 or all(len(self.players[p].hand) == 0 for p in remaining_players):
-            if self.current_trick:  # Judge if any cards played
+        remaining_count = 4 - len(self.current_trick)
+        remaining_players = [(self.current_player + k) % 4 for k in range(remaining_count)]
+        if len(self.current_trick) == 4 or all(not any(c.is_trump(self.trump) for c in self.players[p].hand) for p in remaining_players):
+            if self.current_trick:
                 winner_pid = self.judger.judge_trick(self.current_trick, self.trump)
                 winner_team = self.players[winner_pid].team_id
-                self.tricks.append((winner_team, [c for _, c in self.current_trick]))  # Optional
-                self.current_trick = []
-                self.current_player = winner_pid  # Winner leads next
-            else:
-                # No cards in trick (all passed), skip or end if all out
-                self.current_player = (self.current_player + 1) % 4
-            # Reset for next trick
+                self.tricks.append((winner_team, [c for _, c in self.current_trick]))
+            self.current_trick = []
+            self.current_player = winner_pid if 'winner_pid' in locals() else (self.current_player + remaining_count) % 4
+            self.pass_count = 0
 
     def is_over(self) -> bool:
-        return self.phase == 'play' and all(len(p.hand) == 0 for p in self.players)
+        if self.phase != 'play':
+            return False
+        all_out = all(not any(c.is_trump(self.trump) for c in p.hand) for p in self.players)
+        if all_out:
+            print("All players out (no trump left), ending hand.")
+        return all_out or all(len(p.hand) == 0 for p in self.players)
+    # ... rest unchanged ...

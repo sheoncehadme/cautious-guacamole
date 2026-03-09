@@ -74,10 +74,15 @@ while max(env.game.team_scores) < 34:
     log_hand(env, hand_num, "post_discard")
 
     # Step through play
+    max_steps = 0
     while not env.is_over():
         state = env.get_state(player_id)
         action = agents[player_id].step(state)
         state, player_id = env.step(action)
+        max_steps += 1
+        if max_steps > 1000:
+            print("Max steps reached in play phase, possible loop. Ending hand.")
+            break
 
     log_hand(env, hand_num, "plays")
     log_hand(env, hand_num, "scoring")
