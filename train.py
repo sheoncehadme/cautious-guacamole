@@ -32,6 +32,7 @@ agents = [NFSPAgent(
     num_actions=env.game.get_num_actions(),
     state_shape=obs_shape,  # Explicitly use your env's obs size
     hidden_layers_sizes=[128, 128],  # Average policy network layers
+    q_hidden_layers_sizes=[128, 128],  # Q network layers (separate to avoid mismatch)
     device='cuda'
 ) for _ in range(4)]
 
