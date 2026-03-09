@@ -1,22 +1,36 @@
 from typing import Dict, List
 from RLPitch.Card import Card
-import RLPitch.Game as PitchGame
-from .utils import get_card_power, get_card_points, is_low_trump
+from .utils import get_card_power, get_card_points, is_low_trump, PASS_ACTION
 
 class PitchJudger:
     def get_legal_actions(self, state: Dict, player_id: int) -> List[int]:
         if state['phase'] == 'bidding':
-            return list(range(11))  # 0-9 bid, 10=pass
+            high_bid = state.get('high_bid', -1)
+            bid_count = state.get('bid_count', 0)
+            is_last_bidder = bid_count == 3
+            must_bid = is_last_bidder and high_bid == -1
+            min_bid = 4 if must_bid else (high_bid + 1)
+            valid_bids = [bid for bid in range(min_bid, 10)]
+            if not must_bid:
+                valid_bids += [10]  # Pass
+            return valid_bids
         elif state['phase'] == 'declare_trump':
             return list(range(4))  # 0=S,1=H,2=D,3=C
         elif state['phase'] == 'play':
             hand = state['hand']
+            trump = state['trump']
             if not hand:
-                return [PitchGame.PASS_ACTION]  # Return pass when no cards
-            return list(range(len(hand)))  # Hand indices
+                return [PASS_ACTION]  # Out (no cards)
+            trump_indices = [i for i, c in enumerate(hand) if c.is_trump(trump)]
+            if trump_indices:
+                return trump_indices  # Must play trump if have
+            else:
+                return [PASS_ACTION]  # Out (no trump)
         return []
 
     def judge_trick(self, current_trick: List[tuple[int, Card]], trump: str) -> int:
+        if not current_trick:
+            return -1  # No winner if empty
         max_power = -1
         winner_id = -1
         for pid, card in current_trick:
@@ -36,6 +50,8 @@ class PitchJudger:
         for i in range(0, len(played_history), 4):
             trick_plays = played_history[i:i+4]
             winner_pid = self.judge_trick(trick_plays, trump)
+            if winner_pid == -1:
+                continue  # Skip empty tricks
             winner_team = state['teams'][winner_pid]
             for pid, card in trick_plays:
                 pts = get_card_points(card, trump)

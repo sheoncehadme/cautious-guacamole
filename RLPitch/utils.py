@@ -2,6 +2,7 @@ import RLPitch.Card as Card
 
 SUITS = {'S': 0, 'H': 1, 'D': 2, 'C': 3}  # For action encoding
 SUIT_NAMES = ['S', 'H', 'D', 'C']
+PASS_ACTION = 11
 
 def off_suit(trump: str) -> str:
     if trump in ['H', 'D']:

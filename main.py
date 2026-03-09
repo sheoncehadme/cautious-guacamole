@@ -1,9 +1,88 @@
-from RLPitch.env import PitchEnv  # Adjust relative path/case if needed
+# main.py
+# Manual stepping to log at key phases, with score after each trick.
+# Scores are cumulative points from won cards up to that trick (low 2 to player).
+
+from RLPitch.env import PitchEnv
 from rlcard.agents.random_agent import RandomAgent
 
-# Usage example
-env = PitchEnv(config={'seed': 42, 'allow_step_back': False, 'name': 'pitch'})  # Add this key
+# Helpers as before
+
+def print_cards(cards):
+    return ", ".join(str(c) for c in cards) if cards else "EMPTY HAND (issue!)"
+
+def log_hand(env, hand_num, phase):
+    if phase == "initial":
+        print(f"\n=== Hand {hand_num} - Initial Deals ===")
+        for i in range(4):
+            hand = env.game.players[i].hand
+            print(f"Player {i} (Team {i % 2}) hand: {print_cards(hand)} (size: {len(hand)})")
+    elif phase == "bids":
+        print(f"\n=== Hand {hand_num} - Bids ===")
+        for i, bid in enumerate(env.game.round.bids):
+            print(f"Player {i}: {bid if bid != 10 else 'Pass'}")
+        trump = env.game.round.trump
+        print(f"Trump Suit: {trump if trump else 'None'}")
+    elif phase == "post_discard":
+        print(f"\n=== Hand {hand_num} - After Discard/Redeal/Kitty ===")
+        for i in range(4):
+            hand = env.game.players[i].hand
+            print(f"Player {i} hand: {print_cards(hand)} (size: {len(hand)})")
+    elif phase == "plays":
+        print(f"\n=== Hand {hand_num} - Plays ===")
+        history = env.game.round.played_history
+        if not history:
+            print("No plays occurred")
+            return
+        running_team_points = [0, 0]
+        trump = env.game.round.trump
+        for j in range(0, len(history), 4):
+            trick = history[j:j+4]
+            print(f"Trick {j//4 + 1}:")
+            for pid, card in trick:
+                print(f"  Player {pid}: {card}")
+            winner = env.game.judger.judge_trick(trick, trump)
+            print(f"  Winner: Player {winner}")
+            # ... calculate running points as before ...
+            print(f"  Scores after trick: Team 0 = {running_team_points[0]}, Team 1 = {running_team_points[1]}")
+    elif phase == "scoring":
+        print(f"\n=== Hand {hand_num} - Final Scoring ===")
+        score_changes = env.game.judger.judge_hand(env.game.state)
+        for team in range(2):
+            print(f"Team {team} change: {score_changes[team]}")
+        print(f"Team Scores: Team 0 = {env.game.team_scores[0]}, Team 1 = {env.game.team_scores[1]}")
+
+# Main
+config = {'seed': 42, 'allow_step_back': False}
+env = PitchEnv(config=config)
 agents = [RandomAgent(num_actions=env.game.get_num_actions()) for _ in range(4)]
 env.set_agents(agents)
-trajectories, payoffs = env.run(is_training=True)
-print(payoffs)
+
+hand_num = 1
+while max(env.game.team_scores) < 34:
+    state, player_id = env.game.init_game()  # Deal and start bidding
+    log_hand(env, hand_num, "initial")
+
+    # Step through bidding and declare trump
+    while env.game.round.phase in ['bidding', 'declare_trump']:
+        state = env.get_state(player_id)
+        action = agents[player_id].step(state)
+        state, player_id = env.step(action)
+
+    log_hand(env, hand_num, "bids")
+
+    # The phases discard, redeal, kitty are called in declare_trump step, so now log post
+    log_hand(env, hand_num, "post_discard")
+
+    # Step through play
+    while not env.is_over():
+        state = env.get_state(player_id)
+        action = agents[player_id].step(state)
+        state, player_id = env.step(action)
+
+    log_hand(env, hand_num, "plays")
+    log_hand(env, hand_num, "scoring")
+
+    hand_num += 1
+
+winning_team = 0 if env.game.team_scores[0] >= 34 else 1
+print(f"\nGame Over! Team {winning_team} wins with {env.game.team_scores[winning_team]} points.")

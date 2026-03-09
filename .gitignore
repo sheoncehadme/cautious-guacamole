@@ -1,6 +1,7 @@
 # Python
 # Compiled source
 __pycache__
+RLPitch/__pycache__
 *.pyc
 *.pyd
 *.pyo

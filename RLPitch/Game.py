@@ -32,10 +32,7 @@ class PitchGame:
         return self.state, self.current_player
 
     def step(self, action: int):
-        if action == PASS_ACTION:
-            self.current_player = (self.current_player + 1) % 4
-        else:
-            self.round.proceed_action(action)
+        self.round.proceed_action(action)
         self.state = self.get_state(self.current_player)
         if self.is_over():
             score_changes = self.judger.judge_hand(self.state)
@@ -52,6 +49,7 @@ class PitchGame:
             'phase': self.round.phase,
             'bids': self.round.bids.copy(),
             'high_bid': self.round.high_bid,
+            'bid_count': sum(1 for b in self.round.bids if b >= 0),  # Added for bidding logic
             'high_bidder': self.round.high_bidder,
             'high_bidder_team': self.round.high_bidder_team,
             'trump': self.round.trump,
