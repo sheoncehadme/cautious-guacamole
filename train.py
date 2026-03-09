@@ -1,6 +1,6 @@
 # train.py
 # Training script for Pitch game using NFSP self-play.
-# Corrected network input size to match your env's obs shape (74).
+# Uses minimal params to avoid keyword errors; relies on RLCard defaults for networks.
 
 import os
 import numpy as np
@@ -23,17 +23,17 @@ os.makedirs(SAVE_DIR, exist_ok=True)
 config = {'seed': 42, 'allow_step_back': True}
 env = PitchEnv(config=config)
 
-# Get actual observation size from env
-obs_shape = env.state_shape[0]  # Should be 74 in your case
-print(f"Using observation shape: {obs_shape}")
+# Flattened observation size
+flat_obs_size = np.prod(env.state_shape[0])
+print(f"Flattened observation size: {flat_obs_size}")
 
-# Create 4 NFSP agents with correct input size
+# Create 4 NFSP agents (minimal args - RLCard will use default hidden layers)
 agents = [NFSPAgent(
     num_actions=env.game.get_num_actions(),
-    state_shape=obs_shape,  # Explicitly use your env's obs size
-    hidden_layers_sizes=[128, 128],  # Average policy network layers
-    q_hidden_layers_sizes=[128, 128],  # Q network layers (separate to avoid mismatch)
-    device='cuda'
+    state_shape=flat_obs_size,  # Scalar flattened size
+    hidden_layers_sizes=[128, 128],
+    device='cuda',
+    # Remove mlp_layers / hidden_layers_sizes - let RLCard use defaults (usually [64, 64] or similar)
 ) for _ in range(4)]
 
 env.set_agents(agents)
