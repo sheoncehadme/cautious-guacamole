@@ -1,15 +1,14 @@
 # main.py
-# Manual stepping to log at key phases, with score after each trick.
-# Scores are cumulative points from won cards up to that trick (low 2 to player).
+# Manual stepping to log at key phases, with trump count after each play in trick.
 
 from RLPitch.env import PitchEnv
 from rlcard.agents.random_agent import RandomAgent
 
-# Helpers as before
-
+# Helper to pretty-print cards
 def print_cards(cards):
     return ", ".join(str(c) for c in cards) if cards else "EMPTY HAND (issue!)"
 
+# Helper to log hand at key points
 def log_hand(env, hand_num, phase):
     if phase == "initial":
         print(f"\n=== Hand {hand_num} - Initial Deals ===")
@@ -39,10 +38,21 @@ def log_hand(env, hand_num, phase):
             trick = history[j:j+4]
             print(f"Trick {j//4 + 1}:")
             for pid, card in trick:
-                print(f"  Player {pid}: {card}")
+                # Count trump left after play (since pop after choice, but history is post)
+                trump_left = sum(1 for c in env.game.players[pid].hand if c.is_trump(trump))  # After pop
+                print(f"  Player {pid}: {card} (trump left: {trump_left})")
             winner = env.game.judger.judge_trick(trick, trump)
-            print(f"  Winner: Player {winner}")
-            # ... calculate running points as before ...
+            print(f"  Winner: Player {winner if winner != -1 else 'None (empty trick)'}")
+            
+            # Calculate points for this trick and add to running
+            winner_team = env.game.players[winner].team_id if winner != -1 else -1
+            for pid, card in trick:
+                pts = card.get_points(trump)
+                score_team = env.game.players[pid].team_id if card.is_low_trump(trump) else winner_team
+                if score_team != -1:
+                    running_team_points[score_team] += pts
+            
+            # Log running scores after this trick
             print(f"  Scores after trick: Team 0 = {running_team_points[0]}, Team 1 = {running_team_points[1]}")
     elif phase == "scoring":
         print(f"\n=== Hand {hand_num} - Final Scoring ===")
@@ -70,7 +80,7 @@ while max(env.game.team_scores) < 34:
 
     log_hand(env, hand_num, "bids")
 
-    # The phases discard, redeal, kitty are called in declare_trump step, so now log post
+    # Log post-discard (after kitty)
     log_hand(env, hand_num, "post_discard")
 
     # Step through play
