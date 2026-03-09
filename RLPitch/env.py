@@ -10,7 +10,8 @@ class PitchEnv(Env):
         self.name = 'pitch'
         self.game = PitchGame(allow_step_back=config.get('allow_step_back', False))
         super().__init__(config)
-        self.state_shape = [[1, 4, 54 + 10]]
+        # self.state_shape = [[1, 4, 54 + 10]]
+        self.state_shape = 74
         self.action_shape = [None]
 
     def _extract_state(self, state: Dict) -> Dict:
