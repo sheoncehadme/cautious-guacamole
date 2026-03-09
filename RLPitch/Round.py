@@ -61,9 +61,6 @@ class PitchRound:
                 self.current_player = 0  # Restart bidding
                 # Optional: self.dealer.shuffle() and deal again if full redeal wanted, but per rules, just re-bid
 
-    def discard_phase(self):
-        pass  # No discard non-trump
-
     def redeal_phase(self):
         players_below_6 = [p for p in self.players if len(p.hand) < 6]
         while self.dealer.remaining_deck and players_below_6:
@@ -73,24 +70,37 @@ class PitchRound:
 
             players_below_6 = [p for p in self.players if len(p.hand) < 6]
 
+    def discard_phase(self):
+        for player in self.players:
+            if player.player_id == self.high_bidder:
+                continue  # Skip for high bidder, keep all until kitty
+            trump_cards = [c for c in player.hand if c.is_trump(self.trump)]
+            player.hand = trump_cards  # Discard non-trump
+            if len(player.hand) > 6:
+                self.np_random.shuffle(player.hand)
+                player.hand.sort(key=lambda c: get_card_power(c, self.trump))  # Ascending
+                burnt = player.hand[6:]
+                player.hand = player.hand[:6]
+                for b in burnt:
+                    print(f"Player {player.player_id} burnt trump card: {b} (out of play)")
+
     def kitty_phase(self):
         high_bidder = self.players[self.high_bidder]
         trump = self.trump
 
-        # Add better trump from kitty
-        current_hand = high_bidder.hand.copy()
-        current_hand.sort(key=lambda c: get_card_power(c, trump))  # Ascending
-        for c in self.dealer.remaining_deck:
-            if is_trump(c, trump):
-                if len(current_hand) < 6 or get_card_power(c, trump) > get_card_power(current_hand[0], trump):
-                    current_hand.append(c)
-                    current_hand.sort(key=lambda c: get_card_power(c, trump))
-                    if len(current_hand) > 6:
-                        burnt_card = current_hand.pop(0)
-                        if is_trump(burnt_card, trump):
-                            print(f"Player {high_bidder.player_id} burnt trump card: {burnt_card} (out of play)")
+        # High bidder adds trump from kitty
+        added_trump = [c for c in self.dealer.remaining_deck if c.is_trump(trump)]
+        high_bidder.hand.extend(added_trump)
 
-        high_bidder.hand = current_hand
+        # Burn excess if >6 (now after keeping all + kitty)
+        if len(high_bidder.hand) > 6:
+            high_bidder.hand.sort(key=lambda c: get_card_power(c, trump))  # Ascending (burn lowest)
+            burnt = high_bidder.hand[6:]
+            high_bidder.hand = high_bidder.hand[:6]
+            for b in burnt:
+                if b.is_trump(trump):
+                    print(f"Player {high_bidder.player_id} burnt trump card: {b} (out of play)")
+
         self.dealer.remaining_deck = []  # Clear kitty
 
     def proceed_trick(self, action: int):
