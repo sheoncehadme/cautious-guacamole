@@ -92,15 +92,9 @@ class PitchRound:
     def proceed_trick(self, action: int):
         if action == PASS_ACTION:
             print(f"Player {self.current_player} declares out (no trump left)")
-            self.pass_count += 1
             self.current_player = (self.current_player + 1) % 4
-            if self.pass_count >= 4:
-                self.current_trick = []  # Clear if no plays
-                self.pass_count = 0
-                return  # Skip to is_over check
             return
 
-        self.pass_count = 0
         hand = self.players[self.current_player].hand
         if not hand:
             self.current_player = (self.current_player + 1) % 4
@@ -111,13 +105,7 @@ class PitchRound:
             trump_indices = [i for i, c in enumerate(hand) if c.is_trump(self.trump)]
             action = self.np_random.choice(trump_indices) if trump_indices else PASS_ACTION
             if action == PASS_ACTION:
-                print(f"Player {self.current_player} declares out (no trump left)")
-                self.pass_count += 1
                 self.current_player = (self.current_player + 1) % 4
-                if self.pass_count >= 4:
-                    self.current_trick = []
-                    self.pass_count = 0
-                    return
                 return
 
         card = hand.pop(action)
@@ -134,7 +122,6 @@ class PitchRound:
                 self.tricks.append((winner_team, [c for _, c in self.current_trick]))
             self.current_trick = []
             self.current_player = winner_pid if 'winner_pid' in locals() else (self.current_player + remaining_count) % 4
-            self.pass_count = 0
 
     def is_over(self) -> bool:
         if self.phase != 'play':
@@ -143,4 +130,3 @@ class PitchRound:
         if all_out:
             print("All players out (no trump left), ending hand.")
         return all_out or all(len(p.hand) == 0 for p in self.players)
-    # ... rest unchanged ...
