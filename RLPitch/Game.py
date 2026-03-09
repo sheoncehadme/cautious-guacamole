@@ -41,7 +41,7 @@ class PitchGame:
             for i, p in enumerate(self.players):
                 p.score = self.team_scores[p.team_id]
         return self.state, self.current_player
-    
+
     def get_state(self, player_id: int) -> Dict[str, Any]:
         state = {
             'hand': self.players[player_id].hand.copy(),
@@ -49,7 +49,7 @@ class PitchGame:
             'phase': self.round.phase,
             'bids': self.round.bids.copy(),
             'high_bid': self.round.high_bid,
-            'bid_count': sum(1 for b in self.round.bids if b >= 0),  # Added for bidding logic
+            'bid_count': sum(1 for b in self.round.bids if b >= 0),
             'high_bidder': self.round.high_bidder,
             'high_bidder_team': self.round.high_bidder_team,
             'trump': self.round.trump,
@@ -64,11 +64,9 @@ class PitchGame:
         return self.round.is_over() if self.round else False
 
     def get_payoffs(self) -> List[float]:
-        # For RL: Per-hand score changes, or 1/-1 if win/set, but stub as normalized scores
         payoffs = [0.0] * 4
         for i, p in enumerate(self.players):
             payoffs[i] = p.score / 34.0  # Progress to win
-        # Adjust for teams: positive for winning team if >=34
         if max(self.team_scores) >= 34:
             winning_team = np.argmax(self.team_scores)
             for i in range(4):
@@ -79,10 +77,10 @@ class PitchGame:
         return self.judger.get_legal_actions(self.state, self.current_player)
 
     def get_num_actions(self) -> int:
-        return 12  # Max bids, but play up to 6-9 hand size; use dynamic legal
-    
+        return 12
+
     def get_num_players(self):
         return self.num_players
-    
+
     def get_player_id(self):
         return self.current_player

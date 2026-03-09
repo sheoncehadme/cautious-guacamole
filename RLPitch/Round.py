@@ -38,8 +38,6 @@ class PitchRound:
             self.kitty_phase()
             self.phase = 'play'
             self.current_player = self.high_bidder  # Leads
-        elif self.phase == 'play':
-            self.proceed_trick(action)
 
     def proceed_bidding(self, action: int):
         if action < 10:
@@ -47,9 +45,6 @@ class PitchRound:
                 self.high_bid = action
                 self.high_bidder = self.current_player
                 self.high_bidder_team = self.players[self.current_player].team_id
-            else:
-                print(f"Warning: Invalid bid {action} <= high_bid {self.high_bid}; treating as pass")
-                action = 10
         self.bids[self.current_player] = action
         self.current_player = (self.current_player + 1) % 4
         if all(b >= 0 for b in self.bids):
@@ -86,7 +81,7 @@ class PitchRound:
                     current_hand.sort(key=lambda c: get_card_power(c, trump))
                     if len(current_hand) > 6:
                         burnt_card = current_hand.pop(0)
-                        if burnt_card.is_trump(trump):
+                        if is_trump(burnt_card, trump):
                             print(f"Player {high_bidder.player_id} burnt trump card: {burnt_card} (out of play)")
 
         high_bidder.hand = current_hand
@@ -98,9 +93,9 @@ class PitchRound:
             self.pass_count += 1
             self.current_player = (self.current_player + 1) % 4
             if self.pass_count >= 4:
-                self.current_trick = []  # Clear empty trick
+                self.current_trick = []  # Clear
                 self.pass_count = 0
-                return  # Exit to loop check is_over
+                return
             return
 
         self.pass_count = 0
@@ -112,13 +107,16 @@ class PitchRound:
         if action >= len(hand) or action < 0:
             print(f"Invalid action {action} for hand size {len(hand)}, choosing random legal")
             trump_indices = [i for i, c in enumerate(hand) if c.is_trump(self.trump)]
-            action = self.np_random.choice(trump_indices) if trump_indices else PASS_ACTION
+            if trump_indices:
+                action = self.np_random.choice(trump_indices)
+            else:
+                action = PASS_ACTION
             if action == PASS_ACTION:
                 print(f"Player {self.current_player} declares out (no trump left)")
                 self.pass_count += 1
                 self.current_player = (self.current_player + 1) % 4
                 if self.pass_count >= 4:
-                    self.current_trick = []
+                    self.current_trick = []  # Clear
                     self.pass_count = 0
                     return
                 return
