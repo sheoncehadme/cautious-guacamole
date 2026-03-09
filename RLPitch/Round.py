@@ -52,8 +52,14 @@ class PitchRound:
                 self.phase = 'declare_trump'
                 self.current_player = self.high_bidder
             else:
-                # No bids, redeal? Stub: assume always bid
-                pass
+                # All passed, redeal (reset for new bidding)
+                print("All players passed - redealing for new bidding.")
+                self.bids = [-1] * 4
+                self.high_bid = -1
+                self.high_bidder = -1
+                self.high_bidder_team = -1
+                self.current_player = 0  # Restart bidding
+                # Optional: self.dealer.shuffle() and deal again if full redeal wanted, but per rules, just re-bid
 
     def discard_phase(self):
         pass  # No discard non-trump
