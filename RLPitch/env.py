@@ -1,3 +1,4 @@
+# RLPitch/env.py
 from typing import Any, Dict, List
 
 import numpy as np
@@ -10,15 +11,13 @@ class PitchEnv(Env):
         self.name = 'pitch'
         self.game = PitchGame(allow_step_back=config.get('allow_step_back', False))
         super().__init__(config)
-        # self.state_shape = [[1, 4, 54 + 10]]
-        self.state_shape = 74
+        self.state_shape = [[1, 4, 54 + 10]]
         self.action_shape = [None]
 
     def _extract_state(self, state: Dict) -> Dict:
         obs = np.zeros(54 + 20, dtype=np.float32)
         action_ids = self.game.get_legal_actions()
         if not action_ids:
-            print("Legal actions empty, adding PASS_ACTION as fallback.")
             action_ids = [PASS_ACTION]
         legal_actions = {aid: None for aid in action_ids}
         raw_legal_actions = [str(i) for i in action_ids]
@@ -31,10 +30,17 @@ class PitchEnv(Env):
         return self.game.get_payoffs()
 
     def step(self, action, raw_action=False):
-        if len(self.game.get_legal_actions()) == 0:
-            # Force advance if empty legal (all out)
-            print("Force advancing player in step due to empty legal actions.")
+        # Get current legal actions
+        legal_actions = self.game.get_legal_actions()
+        if not legal_actions:
+            print("Legal actions empty, force advancing player.")
             self.game.current_player = (self.game.current_player + 1) % self.game.num_players
             state = self.get_state(self.game.get_player_id())
             return state, self.game.get_player_id()
+
+        # Validate action
+        if action not in legal_actions:
+            print(f"Invalid action {action} (legal: {legal_actions}), choosing random legal.")
+            action = np.random.choice(legal_actions)
+
         return super().step(action, raw_action)
