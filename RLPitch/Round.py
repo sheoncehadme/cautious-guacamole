@@ -114,7 +114,11 @@ class PitchRound:
             self.pass_count += 1
             self.current_player = (self.current_player + 1) % 4
             if self.pass_count >= 4:
-                self.phase = 'ended'  # Force end
+                self.current_trick = []
+                self.pass_count = 0
+                # Force end if all out
+                if all(not any(c.is_trump(self.trump) for c in p.hand) for p in self.players):
+                    self.phase = 'ended'
                 return
             return
 
@@ -133,7 +137,10 @@ class PitchRound:
                 self.pass_count += 1
                 self.current_player = (self.current_player + 1) % 4
                 if self.pass_count >= 4:
-                    self.phase = 'ended'
+                    self.current_trick = []
+                    self.pass_count = 0
+                    if all(not any(c.is_trump(self.trump) for c in p.hand) for p in self.players):
+                        self.phase = 'ended'
                     return
                 return
 
@@ -151,14 +158,14 @@ class PitchRound:
                 self.tricks.append((winner_team, [c for _, c in self.current_trick]))
             self.current_trick = []
             self.current_player = winner_pid if 'winner_pid' in locals() else (self.current_player + remaining_count) % 4
-            self.pass_count = 0  # Reset for new trick
+            self.pass_count = 0
 
     def is_over(self) -> bool:
         if self.phase != 'play':
             return False
         all_out = all(not any(c.is_trump(self.trump) for c in p.hand) for p in self.players)
-        all_empty = all(len(p.hand) == 0 for p in self.players)
-        if all_out or all_empty:
-            print("Ending hand: all_out =", all_out, "all_empty = ", all_empty)
+        if all_out:
+            print("All players out (no trump left), ending hand.")
+            self.phase = 'ended'
             return True
-        return False
+        return all(len(p.hand) == 0 for p in self.players) or self.phase == 'ended'

@@ -1,6 +1,3 @@
-# RLPitch/env.py
-# Updated _extract_state to add PASS_ACTION if legal_actions empty (fallback for all out).
-
 from typing import Any, Dict, List
 
 import numpy as np
@@ -33,4 +30,10 @@ class PitchEnv(Env):
         return self.game.get_payoffs()
 
     def step(self, action, raw_action=False):
+        if len(self.game.get_legal_actions()) == 0:
+            # Force advance if empty legal (all out)
+            print("Force advancing player in step due to empty legal actions.")
+            self.game.current_player = (self.game.current_player + 1) % self.game.num_players
+            state = self.get_state(self.game.get_player_id())
+            return state, self.game.get_player_id()
         return super().step(action, raw_action)
