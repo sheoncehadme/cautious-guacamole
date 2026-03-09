@@ -73,11 +73,10 @@ class PitchRound:
     def discard_phase(self):
         for player in self.players:
             if player.player_id == self.high_bidder:
-                continue  # Skip for high bidder, keep all until kitty
+                continue  # Skip high bidder, keep all until kitty
             trump_cards = [c for c in player.hand if c.is_trump(self.trump)]
-            player.hand = trump_cards  # Discard non-trump
+            player.hand = trump_cards  # Discard non-trump for others
             if len(player.hand) > 6:
-                self.np_random.shuffle(player.hand)
                 player.hand.sort(key=lambda c: get_card_power(c, self.trump))  # Ascending
                 burnt = player.hand[6:]
                 player.hand = player.hand[:6]
@@ -88,13 +87,13 @@ class PitchRound:
         high_bidder = self.players[self.high_bidder]
         trump = self.trump
 
-        # High bidder adds trump from kitty
+        # Add trump from kitty
         added_trump = [c for c in self.dealer.remaining_deck if c.is_trump(trump)]
         high_bidder.hand.extend(added_trump)
 
-        # Burn excess if >6 (now after keeping all + kitty)
+        # Burn excess if >6
         if len(high_bidder.hand) > 6:
-            high_bidder.hand.sort(key=lambda c: get_card_power(c, trump))  # Ascending (burn lowest)
+            high_bidder.hand.sort(key=lambda c: get_card_power(c, self.trump))  # Ascending
             burnt = high_bidder.hand[6:]
             high_bidder.hand = high_bidder.hand[:6]
             for b in burnt:
