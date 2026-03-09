@@ -70,6 +70,8 @@ env.set_agents(agents)
 hand_num = 1
 while max(env.game.team_scores) < 34:
     state, player_id = env.game.init_game()  # Deal and start bidding
+    print(f" State: {env.get_state(player_id)} ")
+
     log_hand(env, hand_num, "initial")
 
     # Step through bidding and declare trump
@@ -91,6 +93,7 @@ while max(env.game.team_scores) < 34:
         state, player_id = env.step(action)
         max_steps += 1
         if max_steps > 1000:
+            print(f" State: {env.get_state(player_id)} ")
             print("Max steps reached in play phase, possible loop. Ending hand.")
             break
 
