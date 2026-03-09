@@ -39,6 +39,8 @@ class PitchRound:
             self.phase = 'play'
             self.current_player = self.high_bidder  # Leads
             self.pass_count = 0
+        elif self.phase == 'play':
+            self.proceed_trick(action)
 
     def proceed_bidding(self, action: int):
         if action < 10:
